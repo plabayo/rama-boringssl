@@ -62,18 +62,19 @@ static void PEM_dek_info(char buf[PEM_BUFSIZE], const char *type, size_t len,
   OPENSSL_strlcat(buf, "DEK-Info: ", PEM_BUFSIZE);
   OPENSSL_strlcat(buf, type, PEM_BUFSIZE);
   OPENSSL_strlcat(buf, ",", PEM_BUFSIZE);
-  size_t buf_len = strlen(buf);
-  // We must write an additional |2 * len + 2| bytes after |buf_len|, including
-  // the trailing newline and NUL.
-  if (len > (PEM_BUFSIZE - buf_len - 2) / 2) {
+
+  const size_t used = strlen(buf);
+  const size_t available = PEM_BUFSIZE - used;
+  if (len * 2 < len || len * 2 + 2 < len || available < len * 2 + 2) {
     return;
   }
+
   for (size_t i = 0; i < len; i++) {
-    buf[buf_len + i * 2] = map[(str[i] >> 4) & 0x0f];
-    buf[buf_len + i * 2 + 1] = map[(str[i]) & 0x0f];
+    buf[used + i * 2] = map[(str[i] >> 4) & 0x0f];
+    buf[used + i * 2 + 1] = map[(str[i]) & 0x0f];
   }
-  buf[buf_len + len * 2] = '\n';
-  buf[buf_len + len * 2 + 1] = '\0';
+  buf[used + len * 2] = '\n';
+  buf[used + len * 2 + 1] = '\0';
 }
 
 void *PEM_ASN1_read(d2i_of_void *d2i, const char *name, FILE *fp, void **x,
