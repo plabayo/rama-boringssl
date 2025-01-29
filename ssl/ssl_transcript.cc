@@ -10,6 +10,8 @@
 
 #include <openssl/ssl.h>
 
+#include <string_view>
+
 #include <openssl/buf.h>
 #include <openssl/digest.h>
 #include <openssl/err.h>
@@ -125,7 +127,7 @@ bool SSLTranscript::UpdateForHelloRetryRequest() {
                              static_cast<uint8_t>(hash_len)};
   if (!EVP_DigestInit_ex(hash_.get(), Digest(), nullptr) ||
       !AddToBufferOrHash(header) ||
-      !AddToBufferOrHash(MakeConstSpan(old_hash, hash_len))) {
+      !AddToBufferOrHash(Span(old_hash, hash_len))) {
     return false;
   }
   return true;
@@ -197,21 +199,16 @@ bool SSLTranscript::GetHash(uint8_t *out, size_t *out_len) const {
 bool SSLTranscript::GetFinishedMAC(uint8_t *out, size_t *out_len,
                                    const SSL_SESSION *session,
                                    bool from_server) const {
-  static const char kClientLabel[] = "client finished";
-  static const char kServerLabel[] = "server finished";
-  auto label = from_server
-                   ? MakeConstSpan(kServerLabel, sizeof(kServerLabel) - 1)
-                   : MakeConstSpan(kClientLabel, sizeof(kClientLabel) - 1);
-
   uint8_t digest[EVP_MAX_MD_SIZE];
   size_t digest_len;
   if (!GetHash(digest, &digest_len)) {
     return false;
   }
 
+  std::string_view label = from_server ? "server finished" : "client finished";
   static const size_t kFinishedLen = 12;
-  if (!tls1_prf(Digest(), MakeSpan(out, kFinishedLen), session->secret, label,
-                MakeConstSpan(digest, digest_len), {})) {
+  if (!tls1_prf(Digest(), Span(out, kFinishedLen), session->secret, label,
+                Span(digest, digest_len), {})) {
     return false;
   }
 

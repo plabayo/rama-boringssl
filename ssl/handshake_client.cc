@@ -234,7 +234,7 @@ bool ssl_add_client_hello(SSL_HANDSHAKE *hs) {
     // ClientHelloOuter cannot have a PSK binder. Otherwise the
     // ClientHellOuterAAD computation would break.
     assert(type != ssl_client_hello_outer);
-    if (!tls13_write_psk_binder(hs, hs->transcript, MakeSpan(msg),
+    if (!tls13_write_psk_binder(hs, hs->transcript, Span(msg),
                                 /*out_binder_len=*/0)) {
       return false;
     }
@@ -332,6 +332,7 @@ void ssl_done_writing_client_hello(SSL_HANDSHAKE *hs) {
   hs->ech_client_outer.Reset();
   hs->cookie.Reset();
   hs->key_share_bytes.Reset();
+  hs->pake_share_bytes.Reset();
 }
 
 static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
@@ -363,6 +364,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
         hs->max_version >= TLS1_2_VERSION ? TLS1_2_VERSION : hs->max_version;
   }
 
+  if (!ssl_setup_pake_shares(hs)) {
+    return ssl_hs_error;
+  }
+
   // If the configured session has expired or is not usable, drop it. We also do
   // not offer sessions on renegotiation.
   SSLSessionType session_type = SSLSessionType::kNotResumable;
@@ -379,6 +384,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
         // Don't offer TLS 1.2 tickets if disabled.
         (session_type == SSLSessionType::kTicket &&
          (SSL_get_options(ssl) & SSL_OP_NO_TICKET)) ||
+        // Don't offer sessions and PAKEs at the same time. We do not currently
+        // support resumption with PAKEs. (Offering both together would need
+        // more logic to conditionally send the key_share extension.)
+        hs->pake_prover != nullptr ||
         !ssl_session_is_time_valid(ssl, ssl->session.get()) ||
         SSL_is_quic(ssl) != int{ssl->session->is_quic} ||
         ssl->s3->initial_handshake_complete) {
@@ -419,7 +428,7 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
 
   if (!ssl_setup_key_shares(hs, /*override_group_id=*/0) ||
       !ssl_setup_extension_permutation(hs) ||
-      !ssl_encrypt_client_hello(hs, MakeConstSpan(ech_enc, ech_enc_len)) ||
+      !ssl_encrypt_client_hello(hs, Span(ech_enc, ech_enc_len)) ||
       !ssl_add_client_hello(hs)) {
     return ssl_hs_error;
   }
@@ -642,6 +651,14 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
     return ssl_hs_ok;
   }
 
+  // If this client is configured to use a PAKE, then the server must support
+  // TLS 1.3.
+  if (hs->pake_prover) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_UNSUPPORTED_PROTOCOL);
+    ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_PROTOCOL_VERSION);
+    return ssl_hs_error;
+  }
+
   // Clear some TLS 1.3 state that no longer needs to be retained.
   hs->key_shares[0].reset();
   hs->key_shares[1].reset();
@@ -666,8 +683,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
         sizeof(kJDK11DowngradeRandom) == sizeof(kTLS13DowngradeRandom),
         "downgrade signals have different size");
     auto suffix =
-        MakeConstSpan(ssl->s3->server_random, sizeof(ssl->s3->server_random))
-            .subspan(SSL3_RANDOM_SIZE - sizeof(kTLS13DowngradeRandom));
+        Span(ssl->s3->server_random).last(sizeof(kTLS13DowngradeRandom));
     if (suffix == kTLS12DowngradeRandom || suffix == kTLS13DowngradeRandom ||
         suffix == kJDK11DowngradeRandom) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_TLS13_DOWNGRADE);
@@ -1303,6 +1319,7 @@ static enum ssl_hs_wait_t do_send_client_certificate(SSL_HANDSHAKE *hs) {
     }
     if (hs->credential == nullptr) {
       // The error from the last attempt is in the error queue.
+      assert(ERR_peek_error() != 0);
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_HANDSHAKE_FAILURE);
       return ssl_hs_error;
     }
@@ -1473,8 +1490,7 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
   }
 
   hs->new_session->secret.ResizeForOverwrite(SSL3_MASTER_SECRET_SIZE);
-  if (!tls1_generate_master_secret(hs, MakeSpan(hs->new_session->secret),
-                                   pms)) {
+  if (!tls1_generate_master_secret(hs, Span(hs->new_session->secret), pms)) {
     return ssl_hs_error;
   }
 

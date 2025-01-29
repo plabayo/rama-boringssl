@@ -2194,7 +2194,7 @@ static bool GetECHLength(SSL_CTX *ctx, size_t *out_client_hello_len,
           ssl.get(), &parsed,
           // Skip record and handshake headers. This assumes the ClientHello
           // fits in one record.
-          MakeConstSpan(client_hello)
+          Span(client_hello)
               .subspan(SSL3_RT_HEADER_LENGTH + SSL3_HM_HEADER_LENGTH)) ||
       !SSL_early_callback_ctx_extension_get(
           &parsed, TLSEXT_TYPE_encrypted_client_hello, &unused, out_ech_len)) {
@@ -2254,64 +2254,61 @@ TEST(SSLTest, ECHPadding) {
 }
 
 TEST(SSLTest, ECHPublicName) {
-  auto str_to_span = [](const char *str) -> Span<const uint8_t> {
-    return MakeConstSpan(reinterpret_cast<const uint8_t *>(str), strlen(str));
-  };
-
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("")));
-  EXPECT_TRUE(ssl_is_valid_ech_public_name(str_to_span("example.com")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span(".example.com")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example.com.")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example..com")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("www.-example.com")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("www.example-.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("")));
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(StringAsBytes("example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes(".example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.com.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example..com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("www.-example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("www.example-.com")));
   EXPECT_FALSE(
-      ssl_is_valid_ech_public_name(str_to_span("no_underscores.example")));
-  EXPECT_FALSE(
-      ssl_is_valid_ech_public_name(str_to_span("invalid_chars.\x01.example")));
-  EXPECT_FALSE(
-      ssl_is_valid_ech_public_name(str_to_span("invalid_chars.\xff.example")));
+      ssl_is_valid_ech_public_name(StringAsBytes("no_underscores.example")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("invalid_chars.\x01.example")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("invalid_chars.\xff.example")));
   static const uint8_t kWithNUL[] = {'t', 'e', 's', 't', 0};
   EXPECT_FALSE(ssl_is_valid_ech_public_name(kWithNUL));
 
   // Test an LDH label with every character and the maximum length.
-  EXPECT_TRUE(ssl_is_valid_ech_public_name(str_to_span(
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(StringAsBytes(
       "abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span(
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes(
       "abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-01234567899")));
 
   // Inputs with trailing numeric components are rejected.
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("127.0.0.1")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example.1")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example.01")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example.0x01")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("example.0X01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("127.0.0.1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.0x01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.0X01")));
   // Leading zeros and values that overflow |uint32_t| are still rejected.
   EXPECT_FALSE(ssl_is_valid_ech_public_name(
-      str_to_span("example.123456789000000000000000")));
+      StringAsBytes("example.123456789000000000000000")));
   EXPECT_FALSE(ssl_is_valid_ech_public_name(
-      str_to_span("example.012345678900000000000000")));
+      StringAsBytes("example.012345678900000000000000")));
   EXPECT_FALSE(ssl_is_valid_ech_public_name(
-      str_to_span("example.0x123456789abcdefABCDEF0")));
+      StringAsBytes("example.0x123456789abcdefABCDEF0")));
   EXPECT_FALSE(ssl_is_valid_ech_public_name(
-      str_to_span("example.0x0123456789abcdefABCDEF")));
+      StringAsBytes("example.0x0123456789abcdefABCDEF")));
   // Adding a non-digit or non-hex character makes it a valid DNS name again.
   // Single-component numbers are rejected.
-  EXPECT_TRUE(ssl_is_valid_ech_public_name(str_to_span("example.1234567890a")));
   EXPECT_TRUE(
-      ssl_is_valid_ech_public_name(str_to_span("example.01234567890a")));
+      ssl_is_valid_ech_public_name(StringAsBytes("example.1234567890a")));
   EXPECT_TRUE(
-      ssl_is_valid_ech_public_name(str_to_span("example.0x123456789abcdefg")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("1")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("01")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("0x01")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("0X01")));
+      ssl_is_valid_ech_public_name(StringAsBytes("example.01234567890a")));
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.0x123456789abcdefg")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0x01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0X01")));
   // Numbers with trailing dots are rejected. (They are already rejected by the
   // LDH label rules, but the WHATWG URL parser additionally rejects them.)
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("1.")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("01.")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("0x01.")));
-  EXPECT_FALSE(ssl_is_valid_ech_public_name(str_to_span("0X01.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("1.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("01.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0x01.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0X01.")));
 }
 
 // When using the built-in verifier, test that |SSL_get0_ech_name_override| is
@@ -3783,7 +3780,6 @@ TEST_P(SSLVersionTest, DefaultTicketKeyRotation) {
                                      true /* changed */));
 
   // Verify ticket resumption actually works.
-  bssl::UniquePtr<SSL> client, server;
   bssl::UniquePtr<SSL_SESSION> session =
       CreateClientSession(client_ctx_.get(), server_ctx_.get());
   ASSERT_TRUE(session);
@@ -4844,18 +4840,18 @@ TEST(SSLTest, CredentialChains) {
             Bytes(CRYPTO_BUFFER_data(subject_buf.get()),
                   CRYPTO_BUFFER_len(subject_buf.get())));
 #if !defined(BORINGSSL_SHARED_LIBRARY)
-  ASSERT_FALSE(cred->ChainContainsIssuer(
-      MakeConstSpan(CRYPTO_BUFFER_data(subject_buf.get()),
-                    CRYPTO_BUFFER_len(subject_buf.get()))));
+  ASSERT_FALSE(
+      cred->ChainContainsIssuer(Span(CRYPTO_BUFFER_data(subject_buf.get()),
+                                     CRYPTO_BUFFER_len(subject_buf.get()))));
 #endif
 
   ASSERT_TRUE(
       SSL_CREDENTIAL_set1_cert_chain(cred.get(), chain.data(), chain.size()));
 
 #if !defined(BORINGSSL_SHARED_LIBRARY)
-  ASSERT_TRUE(cred->ChainContainsIssuer(
-      MakeConstSpan(CRYPTO_BUFFER_data(subject_buf.get()),
-                    CRYPTO_BUFFER_len(subject_buf.get()))));
+  ASSERT_TRUE(
+      cred->ChainContainsIssuer(Span(CRYPTO_BUFFER_data(subject_buf.get()),
+                                     CRYPTO_BUFFER_len(subject_buf.get()))));
 #endif
 
   ASSERT_TRUE(SSL_CREDENTIAL_set1_cert_chain(cred2.get(), test_chain.data(),
@@ -6947,23 +6943,22 @@ class QUICMethodTest : public testing::Test {
   static int SetReadSecretCallback(SSL *ssl, ssl_encryption_level_t level,
                                    const SSL_CIPHER *cipher,
                                    const uint8_t *secret, size_t secret_len) {
-    return TransportFromSSL(ssl)->SetReadSecret(
-        level, cipher, MakeConstSpan(secret, secret_len));
+    return TransportFromSSL(ssl)->SetReadSecret(level, cipher,
+                                                Span(secret, secret_len));
   }
 
   static int SetWriteSecretCallback(SSL *ssl, ssl_encryption_level_t level,
                                     const SSL_CIPHER *cipher,
                                     const uint8_t *secret, size_t secret_len) {
-    return TransportFromSSL(ssl)->SetWriteSecret(
-        level, cipher, MakeConstSpan(secret, secret_len));
+    return TransportFromSSL(ssl)->SetWriteSecret(level, cipher,
+                                                 Span(secret, secret_len));
   }
 
   static int AddHandshakeDataCallback(SSL *ssl,
                                       enum ssl_encryption_level_t level,
                                       const uint8_t *data, size_t len) {
     EXPECT_EQ(level, SSL_quic_write_level(ssl));
-    return TransportFromSSL(ssl)->WriteHandshakeData(level,
-                                                     MakeConstSpan(data, len));
+    return TransportFromSSL(ssl)->WriteHandshakeData(level, Span(data, len));
   }
 
   static int FlushFlightCallback(SSL *ssl) { return 1; }
@@ -7492,7 +7487,7 @@ TEST_F(QUICMethodTest, ExcessProvidedData) {
                                const uint8_t *data, size_t len) -> int {
     // Switch everything to the initial level.
     return TransportFromSSL(ssl)->WriteHandshakeData(ssl_encryption_initial,
-                                                     MakeConstSpan(data, len));
+                                                     Span(data, len));
   };
 
   SSL_QUIC_METHOD quic_method = DefaultQUICMethod();
@@ -8094,7 +8089,7 @@ Span<const uint8_t> SessionIDOf(const SSL *ssl) {
   const SSL_SESSION *session = SSL_get_session(ssl);
   unsigned len;
   const uint8_t *data = SSL_SESSION_get_id(session, &len);
-  return MakeConstSpan(data, len);
+  return Span(data, len);
 }
 
 TEST_P(SSLVersionTest, TicketSessionIDsMatch) {
@@ -8142,9 +8137,9 @@ static void WriteHelloRequest(SSL *server) {
   ASSERT_EQ(2u * (kKeyLen + kNonceLen), SSL_get_key_block_len(server));
   uint8_t key_block[2u * (kKeyLen + kNonceLen)];
   ASSERT_TRUE(SSL_generate_key_block(server, key_block, sizeof(key_block)));
-  Span<uint8_t> key = MakeSpan(key_block + kKeyLen, kKeyLen);
+  Span<uint8_t> key = Span(key_block).subspan(kKeyLen, kKeyLen);
   Span<uint8_t> nonce =
-      MakeSpan(key_block + kKeyLen + kKeyLen + kNonceLen, kNonceLen);
+      Span(key_block).subspan(kKeyLen + kKeyLen + kNonceLen, kNonceLen);
 
   uint8_t ad[13];
   uint64_t seq = SSL_get_write_sequence(server);
@@ -9860,6 +9855,297 @@ TEST(SSLTest, SetGetCompliancePolicy) {
     EXPECT_EQ(SSL_get_compliance_policy(ssl.get()), policy);
   }
 }
+
+class SSLPAKETest : public testing::Test {
+ public:
+  static Span<const uint8_t> pake_context() {
+    return StringAsBytes("test context");
+  }
+  static Span<const uint8_t> client_identity() {
+    return StringAsBytes("client");
+  }
+  static Span<const uint8_t> server_identity() {
+    return StringAsBytes("client");
+  }
+
+  static UniquePtr<SSL_CTX> NewClientContext(std::string_view password,
+                                             uint32_t attempts) {
+    auto reg = Register(password);
+    if (!reg) {
+      return nullptr;
+    }
+
+    UniquePtr<SSL_CREDENTIAL> cred(SSL_CREDENTIAL_new_spake2plusv1_client(
+        pake_context().data(), pake_context().size(), client_identity().data(),
+        client_identity().size(), server_identity().data(),
+        server_identity().size(), attempts, reg->pw_verifier_w0,
+        sizeof(reg->pw_verifier_w0), reg->pw_verifier_w1,
+        sizeof(reg->pw_verifier_w1)));
+    if (cred == nullptr) {
+      return nullptr;
+    }
+
+    bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
+    if (ctx == nullptr || !SSL_CTX_add1_credential(ctx.get(), cred.get())) {
+      return nullptr;
+    }
+    return ctx;
+  }
+
+  static UniquePtr<SSL_CTX> NewServerContext(std::string_view password,
+                                             uint32_t attempts) {
+    auto reg = Register(password);
+    if (!reg) {
+      return nullptr;
+    }
+
+    UniquePtr<SSL_CREDENTIAL> cred(SSL_CREDENTIAL_new_spake2plusv1_server(
+        pake_context().data(), pake_context().size(), client_identity().data(),
+        client_identity().size(), server_identity().data(),
+        server_identity().size(), attempts, reg->pw_verifier_w0,
+        sizeof(reg->pw_verifier_w0), reg->registration_record,
+        sizeof(reg->registration_record)));
+    if (cred == nullptr) {
+      return nullptr;
+    }
+
+    bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
+    if (ctx == nullptr || !SSL_CTX_add1_credential(ctx.get(), cred.get())) {
+      return nullptr;
+    }
+    return ctx;
+  }
+
+ private:
+  struct PAKERegistration {
+    uint8_t pw_verifier_w0[32];
+    uint8_t pw_verifier_w1[32];
+    uint8_t registration_record[65];
+  };
+
+  static std::optional<PAKERegistration> Register(std::string_view password) {
+    auto password_bytes = StringAsBytes(password);
+    PAKERegistration ret;
+    if (!SSL_spake2plusv1_register(
+            ret.pw_verifier_w0, ret.pw_verifier_w1, ret.registration_record,
+            password_bytes.data(), password_bytes.size(),
+            client_identity().data(), client_identity().size(),
+            server_identity().data(), server_identity().size())) {
+      return std::nullopt;
+    }
+    return ret;
+  }
+};
+
+TEST_F(SSLPAKETest, SPAKE2PLUS) {
+  UniquePtr<SSL_CTX> client_ctx = NewClientContext("password", 1);
+  ASSERT_TRUE(client_ctx);
+  UniquePtr<SSL_CTX> server_ctx = NewServerContext("password", 1);
+  ASSERT_TRUE(server_ctx);
+  bssl::UniquePtr<SSL> client, server;
+  ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                     server_ctx.get()));
+}
+
+TEST_F(SSLPAKETest, ClientLimit) {
+  static constexpr uint32_t kLimit = 5;
+  static constexpr uint32_t kUnlimited = UINT32_MAX;
+
+  UniquePtr<SSL_CTX> client_ctx = NewClientContext("password", kLimit);
+  ASSERT_TRUE(client_ctx);
+  UniquePtr<SSL_CTX> server_ctx_good = NewServerContext("password", kUnlimited);
+  ASSERT_TRUE(server_ctx_good);
+  UniquePtr<SSL_CTX> server_ctx_bad = NewServerContext("wrong", kUnlimited);
+  ASSERT_TRUE(server_ctx_bad);
+
+  // The client sees confirmV before revealing a password confirmation, so
+  // neither successful nor unfinished handshakes contribute to the limit.
+  bssl::UniquePtr<SSL> client, server;
+  for (uint32_t i = 0; i < kLimit * 2; i++) {
+    // Unfinished handshake.
+    ASSERT_TRUE(CreateClientAndServer(&client, &server, client_ctx.get(),
+                                      server_ctx_good.get()));
+    ASSERT_EQ(SSL_do_handshake(client.get()), -1);  // Write ClientHello.
+    ASSERT_EQ(SSL_get_error(client.get(), -1), SSL_ERROR_WANT_READ);
+
+    // Successful handshake.
+    ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                       server_ctx_good.get()));
+  }
+
+  // After kLimit - 1 password mismatches, the credential still functions.
+  for (uint32_t i = 0; i < kLimit - 1; i++) {
+    ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                        server_ctx_bad.get()));
+  }
+  ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                     server_ctx_good.get()));
+
+  // But after one more password mismatch...
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                      server_ctx_bad.get()));
+
+  // ...the client should refuse to use the credential at all.
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx.get(),
+                                      server_ctx_good.get()));
+  ASSERT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL, SSL_R_PAKE_EXHAUSTED));
+}
+
+TEST_F(SSLPAKETest, ServerLimit) {
+  static constexpr uint32_t kLimit = 5;
+  static constexpr uint32_t kUnlimited = UINT32_MAX;
+
+  UniquePtr<SSL_CTX> server_ctx = NewServerContext("password", kLimit);
+  ASSERT_TRUE(server_ctx);
+  UniquePtr<SSL_CTX> client_ctx_good = NewClientContext("password", kUnlimited);
+  ASSERT_TRUE(client_ctx_good);
+  UniquePtr<SSL_CTX> client_ctx_bad = NewClientContext("wrong", kUnlimited);
+  ASSERT_TRUE(client_ctx_bad);
+
+  // Successful handshakes do not (indefinitely) contribute to the limit. If the
+  // server sees one good handshake at a time, the limit does not impact it.
+  bssl::UniquePtr<SSL> client, server;
+  for (uint32_t i = 0; i < kLimit * 2; i++) {
+    ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                       server_ctx.get()));
+  }
+
+  // The server sends confirmV before confirming the client knew the password,
+  // so any handshake in between ClientHello and ServerHello counts towards the
+  // limit.
+  struct ClientServerPair {
+    bssl::UniquePtr<SSL> client, server;
+  };
+  std::vector<ClientServerPair> pending;
+  auto handshake_up_to_serverhello = [](ClientServerPair *pair) {
+    // Send ClientHello.
+    ASSERT_EQ(SSL_do_handshake(pair->client.get()), -1);
+    ASSERT_EQ(SSL_get_error(pair->client.get(), -1), SSL_ERROR_WANT_READ);
+    // Send ServerHello..Finished.
+    ASSERT_EQ(SSL_do_handshake(pair->server.get()), -1);
+    ASSERT_EQ(SSL_get_error(pair->server.get(), -1), SSL_ERROR_WANT_READ);
+  };
+
+  // First, go just under the limit.
+  for (uint32_t i = 0; i < kLimit - 1; i++) {
+    ClientServerPair pair;
+    ASSERT_TRUE(CreateClientAndServer(&pair.client, &pair.server,
+                                      client_ctx_good.get(), server_ctx.get()));
+    ASSERT_NO_FATAL_FAILURE(handshake_up_to_serverhello(&pair));
+    pending.push_back(std::move(pair));
+  }
+
+  // The server can still complete a handshake.
+  ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                     server_ctx.get()));
+
+  // Start one more unfinished handshake.
+  ClientServerPair pair;
+  ASSERT_TRUE(CreateClientAndServer(&pair.client, &pair.server,
+                                    client_ctx_good.get(), server_ctx.get()));
+  ASSERT_NO_FATAL_FAILURE(handshake_up_to_serverhello(&pair));
+  pending.push_back(std::move(pair));
+
+  // The credential is at its limit.
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                      server_ctx.get()));
+  ASSERT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL, SSL_R_PAKE_EXHAUSTED));
+
+  // Complete some of the handshakes. As they complete, the server learns that
+  // the client had the correct guess, so the connections no longer count
+  // towards the brute force limit.
+  static constexpr uint32_t kRemainingLimit = kLimit / 2;
+  for (uint32_t i = 0; i < kRemainingLimit; i++) {
+    ASSERT_TRUE(CompleteHandshakes(pending.back().client.get(),
+                                   pending.back().server.get()));
+    pending.pop_back();
+  }
+
+  // The server can complete a handshake now that some of the limit has been
+  // released.
+  ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                     server_ctx.get()));
+
+  // Failed handshakes consume the limit. First consume all but one of the newly
+  // released limit.
+  for (uint32_t i = 0; i < kRemainingLimit - 1; i++) {
+    ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx_bad.get(),
+                                        server_ctx.get()));
+  }
+  ASSERT_TRUE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                     server_ctx.get()));
+
+  // Consume the last of the limit.
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx_bad.get(),
+                                      server_ctx.get()));
+  // The credential is disabled again.
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                      server_ctx.get()));
+  ASSERT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL, SSL_R_PAKE_EXHAUSTED));
+
+  // The unfinished handshakes continue to count toward the limit even if they
+  // are destroyed.
+  pending.clear();
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, client_ctx_good.get(),
+                                      server_ctx.get()));
+  ASSERT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL, SSL_R_PAKE_EXHAUSTED));
+}
+
+#if defined(OPENSSL_THREADS)
+// The PAKE limit mechanism should be thread-safe.
+TEST_F(SSLPAKETest, ClientThreads) {
+  static constexpr uint32_t kLimit = 5;
+  static constexpr uint32_t kUnlimited = UINT32_MAX;
+  static constexpr int kThreads = 10;
+
+  UniquePtr<SSL_CTX> client_ctx = NewClientContext("password", kLimit);
+  ASSERT_TRUE(client_ctx);
+  UniquePtr<SSL_CTX> server_ctx_good = NewServerContext("password", kUnlimited);
+  ASSERT_TRUE(server_ctx_good);
+  UniquePtr<SSL_CTX> server_ctx_bad = NewServerContext("wrong", kUnlimited);
+  ASSERT_TRUE(server_ctx_bad);
+
+  auto connect = [&](SSL_CTX *server_ctx) {
+    bssl::UniquePtr<SSL> client, server;
+    ConnectClientAndServer(&client, &server, client_ctx.get(), server_ctx);
+  };
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < kThreads; i++) {
+    threads.emplace_back([&] { connect(server_ctx_good.get()); });
+    threads.emplace_back([&] { connect(server_ctx_bad.get()); });
+  }
+  for (auto &thread : threads) {
+    thread.join();
+  }
+}
+TEST_F(SSLPAKETest, ServerThreads) {
+  static constexpr uint32_t kLimit = 5;
+  static constexpr uint32_t kUnlimited = UINT32_MAX;
+  static constexpr int kThreads = 10;
+
+  UniquePtr<SSL_CTX> server_ctx = NewServerContext("password", kLimit);
+  ASSERT_TRUE(server_ctx);
+  UniquePtr<SSL_CTX> client_ctx_good = NewClientContext("password", kUnlimited);
+  ASSERT_TRUE(client_ctx_good);
+  UniquePtr<SSL_CTX> client_ctx_bad = NewClientContext("wrong", kUnlimited);
+  ASSERT_TRUE(client_ctx_bad);
+
+  auto connect = [&](SSL_CTX *client_ctx) {
+    bssl::UniquePtr<SSL> client, server;
+    ConnectClientAndServer(&client, &server, client_ctx, server_ctx.get());
+  };
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < kThreads; i++) {
+    threads.emplace_back([&] { connect(client_ctx_good.get()); });
+    threads.emplace_back([&] { connect(client_ctx_bad.get()); });
+  }
+  for (auto &thread : threads) {
+    thread.join();
+  }
+}
+#endif  // OPENSSL_THREADS
 
 }  // namespace
 BSSL_NAMESPACE_END
