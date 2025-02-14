@@ -258,7 +258,8 @@ int BORINGSSL_integrity_test(void) {
 
   const uint8_t *expected = BORINGSSL_bcm_text_hash;
 
-  if (!check_test(expected, result, sizeof(result), "FIPS integrity test")) {
+  if (!BORINGSSL_check_test(expected, result, sizeof(result),
+                            "FIPS integrity test")) {
 #if !defined(BORINGSSL_FIPS_BREAK_TESTS)
     return 0;
 #endif

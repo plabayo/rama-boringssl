@@ -20,6 +20,7 @@
 #include <openssl/aead.h>
 #include <openssl/aes.h>
 #include <openssl/bn.h>
+#include <openssl/bytestring.h>
 #include <openssl/crypto.h>
 #include <openssl/ctrdrbg.h>
 #include <openssl/des.h>
@@ -33,6 +34,7 @@
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 
+#include "../../crypto/fipsmodule/bcm_interface.h"
 #include "../../crypto/fipsmodule/rand/internal.h"
 #include "../../crypto/fipsmodule/tls/internal.h"
 #include "../../crypto/internal.h"
@@ -405,6 +407,44 @@ static int run_test() {
 
   printf("  got ");
   hexdump(dh_result, sizeof(dh_result));
+
+  /* ML-KEM */
+  printf("About to generate ML-KEM key:\n");
+  auto mlkem_public_key_bytes =
+      std::make_unique<uint8_t[]>(BCM_MLKEM768_PUBLIC_KEY_BYTES);
+  auto mlkem_private_key = std::make_unique<BCM_mlkem768_private_key>();
+  if (BCM_mlkem768_generate_key_fips(mlkem_public_key_bytes.get(), nullptr,
+                                     mlkem_private_key.get()) !=
+      bcm_status::approved) {
+    fprintf(stderr, "ML-KEM generation failed");
+    return 0;
+  }
+  printf("  got ");
+  hexdump(mlkem_public_key_bytes.get(), BCM_MLKEM768_PUBLIC_KEY_BYTES);
+
+  printf("About to do ML-KEM encap:\n");
+  auto mlkem_ciphertext = std::make_unique<uint8_t[]>(BCM_MLKEM768_CIPHERTEXT_BYTES);
+  uint8_t mlkem_shared_secret[BCM_MLKEM_SHARED_SECRET_BYTES];
+  auto mlkem_public_key = std::make_unique<BCM_mlkem768_public_key>();
+  BCM_mlkem768_public_from_private(mlkem_public_key.get(),
+                                   mlkem_private_key.get());
+  if (BCM_mlkem768_encap(mlkem_ciphertext.get(), mlkem_shared_secret,
+                         mlkem_public_key.get()) != bcm_infallible::approved) {
+    fprintf(stderr, "ML-KEM encap failed");
+    return 0;
+  }
+  printf("  got ");
+  hexdump(mlkem_shared_secret, sizeof(mlkem_shared_secret));
+
+  printf("About to do ML-KEM decap:\n");
+  if (BCM_mlkem768_decap(mlkem_shared_secret, mlkem_ciphertext.get(),
+                         BCM_MLKEM768_CIPHERTEXT_BYTES,
+                         mlkem_private_key.get()) != bcm_status::approved) {
+    fprintf(stderr, "ML-KEM decap failed");
+    return 0;
+  }
+  printf("  got ");
+  hexdump(mlkem_shared_secret, sizeof(mlkem_shared_secret));
 
   printf("PASS\n");
   return 1;

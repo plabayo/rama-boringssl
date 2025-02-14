@@ -492,6 +492,8 @@ struct BCM_mlkem768_private_key {
   } opaque;
 };
 
+
+
 OPENSSL_EXPORT bcm_infallible BCM_mlkem768_generate_key(
     uint8_t out_encoded_public_key[BCM_MLKEM768_PUBLIC_KEY_BYTES],
     uint8_t optional_out_seed[BCM_MLKEM_SEED_BYTES],
@@ -500,6 +502,14 @@ OPENSSL_EXPORT bcm_infallible BCM_mlkem768_generate_key(
 OPENSSL_EXPORT bcm_status BCM_mlkem768_private_key_from_seed(
     struct BCM_mlkem768_private_key *out_private_key, const uint8_t *seed,
     size_t seed_len);
+
+OPENSSL_EXPORT bcm_status BCM_mlkem768_generate_key_fips(
+    uint8_t out_encoded_public_key[BCM_MLKEM768_PUBLIC_KEY_BYTES],
+    uint8_t optional_out_seed[BCM_MLKEM_SEED_BYTES],
+    struct BCM_mlkem768_private_key *out_private_key);
+
+OPENSSL_EXPORT bcm_status
+BCM_mlkem768_check_fips(const struct BCM_mlkem768_private_key *private_key);
 
 OPENSSL_EXPORT bcm_infallible BCM_mlkem768_public_from_private(
     struct BCM_mlkem768_public_key *out_public_key,
@@ -575,6 +585,14 @@ OPENSSL_EXPORT bcm_infallible BCM_mlkem1024_generate_key(
     uint8_t out_encoded_public_key[BCM_MLKEM1024_PUBLIC_KEY_BYTES],
     uint8_t optional_out_seed[BCM_MLKEM_SEED_BYTES],
     struct BCM_mlkem1024_private_key *out_private_key);
+
+OPENSSL_EXPORT bcm_status BCM_mlkem1024_generate_key_fips(
+    uint8_t out_encoded_public_key[BCM_MLKEM1024_PUBLIC_KEY_BYTES],
+    uint8_t optional_out_seed[BCM_MLKEM_SEED_BYTES],
+    struct BCM_mlkem1024_private_key *out_private_key);
+
+OPENSSL_EXPORT bcm_status
+BCM_mlkem1024_check_fips(const struct BCM_mlkem1024_private_key *private_key);
 
 OPENSSL_EXPORT bcm_status BCM_mlkem1024_private_key_from_seed(
     struct BCM_mlkem1024_private_key *out_private_key, const uint8_t *seed,

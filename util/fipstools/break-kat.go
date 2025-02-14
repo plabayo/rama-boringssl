@@ -38,6 +38,9 @@ var (
 		"DRBG":            "c4da0740d505f1ee280b95e58c4931ac6de846a0152fbb4a3f174cf4787a4f1a40c2b50babe14aae530be5886d910a27",
 		"DRBG-reseed":     "c7161ca36c2309b716e9859bb96c6d49bdc8352103a18cd24ef42ec97ef46bf446eb1a4576c186e9351803763a7912fe",
 		"HKDF":            "68678504b9b3add17d5967a1a7bd37993fd8a33ce7303071f39c096d1635b3c9",
+		"MLKEM-keygen":    "d8c9397c3130d8ecb411a68efcc89a553cb7e6817e0288bd0691609bf5",
+		"MLKEM-encap":     "7d9f1cb4ae04d75fa6575ae0e429b573a974b7",
+		"MLKEM-decap":     "a3192a8c88fc996d2df9858d2c55363993f0494d7ec0be5a567b8a4243a5745d",
 		"SHA-1":           "132fd9bad5c1826263bafbb699f707a5",
 		"SHA-256":         "ff3b857da7236a2baa0f396b51522217",
 		"SHA-512":         "212512f8d2ad8322781c6c4d69a9daa1",
@@ -88,6 +91,8 @@ func main() {
 	}
 
 	for _, test := range sortedKATs() {
+		fmt.Printf("\n### Running test for %q\n\n", test)
+
 		const outFile = "test_fips_broken"
 		output, err := os.OpenFile(outFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 		if err != nil {
@@ -96,7 +101,6 @@ func main() {
 		breakBinary(binaryContents, test, output)
 		output.Close()
 
-		fmt.Printf("\n### Running test for %q\n\n", test)
 		cmd := exec.Command("./" + outFile)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stdout
@@ -108,7 +112,7 @@ func main() {
 		os.Remove(outFile)
 	}
 
-	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "CRNG"} {
+	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "MLKEM_PWCT", "CRNG"} {
 		fmt.Printf("\n### Running test for %q\n\n", test)
 
 		cmd := exec.Command("./" + inPath)
@@ -129,24 +133,28 @@ func breakBinary(binaryContents []byte, test string, output io.Writer) {
 		panic("invalid KAT data: " + err.Error())
 	}
 
-	i := bytes.Index(binaryContents, testInputValue)
-	if i < 0 {
-		fmt.Fprintln(os.Stderr, "Expected test input value for", test, "was not found in binary.")
-		os.Exit(3)
-	}
-
 	brokenContents := make([]byte, len(binaryContents))
 	copy(brokenContents, binaryContents)
 
-	// Zero out the entire value because the compiler may produce code
-	// where parts of the value are embedded in the instructions.
-	for j := range testInputValue {
-		brokenContents[i+j] = 0
+	found := false
+	for {
+		i := bytes.Index(brokenContents, testInputValue)
+		if i < 0 {
+			break
+		}
+		found = true
+
+		// Zero out the entire value because the compiler may produce code
+		// where parts of the value are embedded in the instructions.
+		// See crbug.com/399818730
+		for j := range testInputValue {
+			brokenContents[i+j] = 0
+		}
 	}
 
-	if bytes.Index(brokenContents, testInputValue) >= 0 {
-		fmt.Fprintln(os.Stderr, "Test input value was still found after erasing it. Second copy?")
-		os.Exit(4)
+	if !found {
+		fmt.Fprintln(os.Stderr, "Expected test input value for", test, "was not found in binary.")
+		os.Exit(3)
 	}
 
 	if n, err := output.Write(brokenContents); err != nil || n != len(brokenContents) {
