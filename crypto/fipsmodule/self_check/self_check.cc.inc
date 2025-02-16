@@ -1033,10 +1033,11 @@ err:
 int BORINGSSL_self_test(void) {
   if (!boringssl_self_test_fast() ||
       // When requested to run self tests, also run the lazy tests.
-      !boringssl_self_test_rsa() ||   //
-      !boringssl_self_test_ecc() ||   //
-      !boringssl_self_test_ffdh() ||  //
-      !boringssl_self_test_mlkem()) {
+      !boringssl_self_test_rsa() ||    //
+      !boringssl_self_test_ecc() ||    //
+      !boringssl_self_test_ffdh() ||   //
+      !boringssl_self_test_mlkem() ||  //
+      !boringssl_self_test_mldsa()) {
     return 0;
   }
 

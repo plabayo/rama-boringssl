@@ -55,6 +55,9 @@ inline bcm_status_t bcm_as_approved_status(int result) {
   return result ? bcm_status::approved : bcm_status::failure;
 }
 
+inline bcm_status_t bcm_as_not_approved_status(int result) {
+  return result ? bcm_status::not_approved : bcm_status::failure;
+}
 
 // Random number generator.
 
@@ -290,6 +293,18 @@ OPENSSL_EXPORT bcm_status BCM_mldsa65_public_from_private(
     struct BCM_mldsa65_public_key *out_public_key,
     const struct BCM_mldsa65_private_key *private_key);
 
+OPENSSL_EXPORT bcm_status
+BCM_mldsa65_check_key_fips(struct BCM_mldsa65_private_key *private_key);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa65_generate_key_fips(
+    uint8_t out_encoded_public_key[BCM_MLDSA65_PUBLIC_KEY_BYTES],
+    uint8_t out_seed[BCM_MLDSA_SEED_BYTES],
+    struct BCM_mldsa65_private_key *out_private_key);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa65_private_key_from_seed_fips(
+    struct BCM_mldsa65_private_key *out_private_key,
+    const uint8_t seed[BCM_MLDSA_SEED_BYTES]);
+
 OPENSSL_EXPORT bcm_status BCM_mldsa65_sign(
     uint8_t out_encoded_signature[BCM_MLDSA65_SIGNATURE_BYTES],
     const struct BCM_mldsa65_private_key *private_key, const uint8_t *msg,
@@ -313,6 +328,11 @@ OPENSSL_EXPORT bcm_status BCM_mldsa65_parse_private_key(
 // using the given seed, writes the encoded public key to
 // |out_encoded_public_key| and sets |out_private_key| to the private key.
 OPENSSL_EXPORT bcm_status BCM_mldsa65_generate_key_external_entropy(
+    uint8_t out_encoded_public_key[BCM_MLDSA65_PUBLIC_KEY_BYTES],
+    struct BCM_mldsa65_private_key *out_private_key,
+    const uint8_t entropy[BCM_MLDSA_SEED_BYTES]);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa65_generate_key_external_entropy_fips(
     uint8_t out_encoded_public_key[BCM_MLDSA65_PUBLIC_KEY_BYTES],
     struct BCM_mldsa65_private_key *out_private_key,
     const uint8_t entropy[BCM_MLDSA_SEED_BYTES]);
@@ -383,6 +403,18 @@ OPENSSL_EXPORT bcm_status BCM_mldsa87_public_from_private(
     struct BCM_mldsa87_public_key *out_public_key,
     const struct BCM_mldsa87_private_key *private_key);
 
+OPENSSL_EXPORT bcm_status
+BCM_mldsa87_check_key_fips(struct BCM_mldsa87_private_key *private_key);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa87_generate_key_fips(
+    uint8_t out_encoded_public_key[BCM_MLDSA87_PUBLIC_KEY_BYTES],
+    uint8_t out_seed[BCM_MLDSA_SEED_BYTES],
+    struct BCM_mldsa87_private_key *out_private_key);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa87_private_key_from_seed_fips(
+    struct BCM_mldsa87_private_key *out_private_key,
+    const uint8_t seed[BCM_MLDSA_SEED_BYTES]);
+
 OPENSSL_EXPORT bcm_status BCM_mldsa87_sign(
     uint8_t out_encoded_signature[BCM_MLDSA87_SIGNATURE_BYTES],
     const struct BCM_mldsa87_private_key *private_key, const uint8_t *msg,
@@ -406,6 +438,11 @@ OPENSSL_EXPORT bcm_status BCM_mldsa87_parse_private_key(
 // using the given seed, writes the encoded public key to
 // |out_encoded_public_key| and sets |out_private_key| to the private key.
 OPENSSL_EXPORT bcm_status BCM_mldsa87_generate_key_external_entropy(
+    uint8_t out_encoded_public_key[BCM_MLDSA87_PUBLIC_KEY_BYTES],
+    struct BCM_mldsa87_private_key *out_private_key,
+    const uint8_t entropy[BCM_MLDSA_SEED_BYTES]);
+
+OPENSSL_EXPORT bcm_status BCM_mldsa87_generate_key_external_entropy_fips(
     uint8_t out_encoded_public_key[BCM_MLDSA87_PUBLIC_KEY_BYTES],
     struct BCM_mldsa87_private_key *out_private_key,
     const uint8_t entropy[BCM_MLDSA_SEED_BYTES]);

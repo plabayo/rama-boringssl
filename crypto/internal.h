@@ -606,8 +606,7 @@ OPENSSL_EXPORT int CRYPTO_refcount_dec_and_test_zero(CRYPTO_refcount_t *count);
 typedef struct crypto_mutex_st {
   char padding;  // Empty structs have different sizes in C and C++.
 } CRYPTO_MUTEX;
-#define CRYPTO_MUTEX_INIT \
-  { 0 }
+#define CRYPTO_MUTEX_INIT {0}
 #elif defined(OPENSSL_WINDOWS_THREADS)
 typedef SRWLOCK CRYPTO_MUTEX;
 #define CRYPTO_MUTEX_INIT SRWLOCK_INIT
@@ -672,7 +671,7 @@ using MutexReadLock =
 
 BSSL_NAMESPACE_END
 
-}       // extern "C++"
+}  // extern "C++"
 #endif  // defined(__cplusplus)
 
 
@@ -736,10 +735,9 @@ typedef struct {
   uint8_t num_reserved;
 } CRYPTO_EX_DATA_CLASS;
 
-#define CRYPTO_EX_DATA_CLASS_INIT \
-  { CRYPTO_MUTEX_INIT, NULL, NULL, {}, 0 }
+#define CRYPTO_EX_DATA_CLASS_INIT {CRYPTO_MUTEX_INIT, NULL, NULL, {}, 0}
 #define CRYPTO_EX_DATA_CLASS_INIT_WITH_APP_DATA \
-  { CRYPTO_MUTEX_INIT, NULL, NULL, {}, 1 }
+  {CRYPTO_MUTEX_INIT, NULL, NULL, {}, 1}
 
 // CRYPTO_get_ex_new_index_ex allocates a new index for |ex_data_class|. Each
 // class of object should provide a wrapper function that uses the correct
@@ -838,7 +836,7 @@ static inline void *OPENSSL_memchr(void *s, int c, size_t n) {
   return memchr(s, c, n);
 }
 
-}      // extern "C++"
+}  // extern "C++"
 #else  // __cplusplus
 
 static inline void *OPENSSL_memchr(const void *s, int c, size_t n) {
@@ -1061,6 +1059,9 @@ int boringssl_self_test_hmac_sha256(void);
 
 // boringssl_self_test_mlkem performs the ML-KEM KATs.
 OPENSSL_EXPORT int boringssl_self_test_mlkem(void);
+
+// boringssl_self_test_mldsa performs the ML-DSA KATs.
+OPENSSL_EXPORT int boringssl_self_test_mldsa(void);
 
 #if defined(BORINGSSL_FIPS_COUNTERS)
 void boringssl_fips_inc_counter(enum fips_counter_t counter);

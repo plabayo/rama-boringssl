@@ -38,6 +38,9 @@ var (
 		"DRBG":            "c4da0740d505f1ee280b95e58c4931ac6de846a0152fbb4a3f174cf4787a4f1a40c2b50babe14aae530be5886d910a27",
 		"DRBG-reseed":     "c7161ca36c2309b716e9859bb96c6d49bdc8352103a18cd24ef42ec97ef46bf446eb1a4576c186e9351803763a7912fe",
 		"HKDF":            "68678504b9b3add17d5967a1a7bd37993fd8a33ce7303071f39c096d1635b3c9",
+		"MLDSA-keygen":    "0c6f387d2ab43387f021b0da816c71f0bc815ef0b16af1124f354c273eedb42fe54a019a",
+		"MLDSA-sign":      "f8c725848b39d9d980f02ff7a02419087065e2c80ac4d3d5974931ea7bd664b66e6bf3c7",
+		"MLDSA-verify":    "4923cea1293b2400ccc3b19f1e803ed85a0d6e0ba64f35f845f420d848e1858205883fdd",
 		"MLKEM-keygen":    "d8c9397c3130d8ecb411a68efcc89a553cb7e6817e0288bd0691609bf5",
 		"MLKEM-encap":     "7d9f1cb4ae04d75fa6575ae0e429b573a974b7",
 		"MLKEM-decap":     "a3192a8c88fc996d2df9858d2c55363993f0494d7ec0be5a567b8a4243a5745d",
@@ -112,7 +115,7 @@ func main() {
 		os.Remove(outFile)
 	}
 
-	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "MLKEM_PWCT", "CRNG"} {
+	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "MLDSA_PWCT", "MLKEM_PWCT", "CRNG"} {
 		fmt.Printf("\n### Running test for %q\n\n", test)
 
 		cmd := exec.Command("./" + inPath)
