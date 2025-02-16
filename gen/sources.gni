@@ -95,6 +95,7 @@ bcm_internal_headers = [
   "crypto/fipsmodule/sha/sha1.cc.inc",
   "crypto/fipsmodule/sha/sha256.cc.inc",
   "crypto/fipsmodule/sha/sha512.cc.inc",
+  "crypto/fipsmodule/slhdsa/fips_known_values.inc",
   "crypto/fipsmodule/slhdsa/fors.cc.inc",
   "crypto/fipsmodule/slhdsa/merkle.cc.inc",
   "crypto/fipsmodule/slhdsa/slhdsa.cc.inc",

@@ -47,6 +47,9 @@ var (
 		"SHA-1":           "132fd9bad5c1826263bafbb699f707a5",
 		"SHA-256":         "ff3b857da7236a2baa0f396b51522217",
 		"SHA-512":         "212512f8d2ad8322781c6c4d69a9daa1",
+		"SLHDSA-keygen":   "be6bd7e8e198eaf62d572f13fc79f26f",
+		"SLHDSA-sign":     "82d409744d97ae305318469f7b857b91d4e33310b709b550a7c48a46094ec9d4",
+		"SLHDSA-verify":   "3fd69193ee9708bdea110ba29f235ff2ec9888d12761f84dc6e3f0d7eb48d05cacf6e87f",
 		"TLS10-KDF":       "abc3657b094c7628a0b282996fe75a75f4984fd94d4ecc2fcf53a2c469a3f731",
 		"TLS12-KDF":       "c5438ee26fd4acbd259fc91855dc69bf884ee29322fcbfd2966a4623d42ec781",
 		"TLS13-KDF":       "024a0d80f357f2499a1244dac26dab66fc13ed85fca71dace146211119525874",
@@ -115,7 +118,7 @@ func main() {
 		os.Remove(outFile)
 	}
 
-	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "MLDSA_PWCT", "MLKEM_PWCT", "CRNG"} {
+	for _, test := range []string{"ECDSA_PWCT", "RSA_PWCT", "MLDSA_PWCT", "MLKEM_PWCT", "SLHDSA_PWCT", "CRNG"} {
 		fmt.Printf("\n### Running test for %q\n\n", test)
 
 		cmd := exec.Command("./" + inPath)

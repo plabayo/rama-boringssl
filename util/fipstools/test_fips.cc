@@ -481,6 +481,35 @@ static int run_test() {
     return 0;
   }
 
+  /* SLH-DSA */
+  printf("About to generate SLH-DSA key:\n");
+  uint8_t slhdsa_seed[3 * BCM_SLHDSA_SHA2_128S_N] = {0};
+  uint8_t slhdsa_pub[BCM_SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES];
+  uint8_t slhdsa_priv[BCM_SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES];
+  BCM_slhdsa_sha2_128s_generate_key_from_seed(slhdsa_pub, slhdsa_priv,
+                                              slhdsa_seed);
+  printf("  got ");
+  hexdump(slhdsa_pub, sizeof(slhdsa_pub));
+
+  printf("About to SLH-DSA sign:\n");
+  auto slhdsa_sig =
+      std::make_unique<uint8_t[]>(BCM_SLHDSA_SHA2_128S_SIGNATURE_BYTES);
+  if (BCM_slhdsa_sha2_128s_sign(slhdsa_sig.get(), slhdsa_priv, nullptr, 0,
+                                nullptr, 0) != bcm_status::approved) {
+    fprintf(stderr, "SLH-DSA sign failed");
+    return 0;
+  }
+  printf("  got ");
+  hexdump(slhdsa_sig.get(), 128);  // value too long to fully print
+
+  printf("About to SLH-DSA verify:\n");
+  if (BCM_slhdsa_sha2_128s_verify(
+          slhdsa_sig.get(), BCM_SLHDSA_SHA2_128S_SIGNATURE_BYTES, slhdsa_pub,
+          nullptr, 0, nullptr, 0) != bcm_status::approved) {
+    fprintf(stderr, "SLH-DSA verify failed");
+    return 0;
+  }
+
   printf("PASS\n");
   return 1;
 #endif  // !defined(BORINGSSL_FIPS)

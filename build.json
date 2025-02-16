@@ -97,6 +97,7 @@
             "crypto/fipsmodule/slhdsa/slhdsa.cc.inc",
             "crypto/fipsmodule/slhdsa/thash.cc.inc",
             "crypto/fipsmodule/slhdsa/wots.cc.inc",
+            "crypto/fipsmodule/slhdsa/fips_known_values.inc",
             "crypto/fipsmodule/tls/kdf.cc.inc"
         ],
         "asm": [

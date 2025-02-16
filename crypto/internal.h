@@ -1063,6 +1063,9 @@ OPENSSL_EXPORT int boringssl_self_test_mlkem(void);
 // boringssl_self_test_mldsa performs the ML-DSA KATs.
 OPENSSL_EXPORT int boringssl_self_test_mldsa(void);
 
+// boringssl_self_test_slhdsa performs the SLH-DSA KATs.
+OPENSSL_EXPORT int boringssl_self_test_slhdsa(void);
+
 #if defined(BORINGSSL_FIPS_COUNTERS)
 void boringssl_fips_inc_counter(enum fips_counter_t counter);
 #else

@@ -220,4 +220,6 @@ TEST(SLHDSATest, NISTPrehashSignatureVerification) {
                 NISTPrehashSignatureVerificationFileTest);
 }
 
+TEST(SLHDSATest, Self) { boringssl_self_test_slhdsa(); }
+
 }  // namespace

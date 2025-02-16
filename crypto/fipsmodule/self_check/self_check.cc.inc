@@ -1037,7 +1037,8 @@ int BORINGSSL_self_test(void) {
       !boringssl_self_test_ecc() ||    //
       !boringssl_self_test_ffdh() ||   //
       !boringssl_self_test_mlkem() ||  //
-      !boringssl_self_test_mldsa()) {
+      !boringssl_self_test_mldsa() ||  //
+      !boringssl_self_test_slhdsa()) {
     return 0;
   }
 
