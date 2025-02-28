@@ -25,18 +25,33 @@ x:
 
 	# .bss handling is terminated by a .text directive.
 	.text
+.Lnot_bss1_local_target:
+not_bss1:
+	ret
+
+	# The .bss directive can introduce BSS.
+	.bss
+test:
+.Ltest_local_target:
+
+	.quad 0
+	.text
+.Lnot_bss2_local_target:
+not_bss2:
+	ret
+
 	.section .bss,"awT",@nobits
 y:
 .Ly_local_target:
 
 	.quad 0
 
-	# Or a .section directive.
+	# A .section directive also terminates BSS.
 # WAS .section .rodata
 .text
 	.quad 0
 
-	# Or the end of the file.
+	# The end of the file terminates BSS.
 	.section .bss,"awT",@nobits
 z:
 .Lz_local_target:
@@ -52,6 +67,10 @@ aes_128_ctr_generic_storage_bss_get:
 .type aes_128_ctr_generic_storage2_bss_get, @function
 aes_128_ctr_generic_storage2_bss_get:
 	leaq	aes_128_ctr_generic_storage2(%rip), %rax
+	ret
+.type test_bss_get, @function
+test_bss_get:
+	leaq	.Ltest_local_target(%rip), %rax
 	ret
 .type x_bss_get, @function
 x_bss_get:
