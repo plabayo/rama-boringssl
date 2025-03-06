@@ -81,6 +81,7 @@ foo:
 	add w0, w1, b2, sxth
 	add w0, w1, b2, sxtw
 	add w0, w1, b2, sxtx
+	movi v0.4s, #3, msl #8
 
 	// Aarch64 SVE2 added these forms:
 	ld1d { z1.d }, p91/z, [x13, x11, lsl #3]
