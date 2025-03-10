@@ -958,30 +958,42 @@ static bool GetConfig(const Span<const uint8_t> args[],
         "algorithm": "ML-DSA",
         "mode": "sigGen",
         "revision": "FIPS204",
-        "parameterSets": [
-          "ML-DSA-65",
-          "ML-DSA-87"
-        ],
+        "signatureInterfaces": ["internal"],
         "deterministic": [
           true,
           false
         ],
-        "messageLength": [
-          {
+        "externalMu": [
+          false
+        ],
+        "capabilities": [{
+          "parameterSets": [
+            "ML-DSA-65",
+            "ML-DSA-87"
+          ],
+          "messageLength": [{
             "min": 8,
             "max": 65536,
             "increment": 8
-          }
-        ]
+          }]
+        }]
       },
       {
         "algorithm": "ML-DSA",
         "mode": "sigVer",
         "revision": "FIPS204",
-        "parameterSets": [
-          "ML-DSA-65",
-          "ML-DSA-87"
-        ]
+        "signatureInterfaces": ["internal"],
+        "capabilities": [{
+          "messageLength": [{
+            "min": 8,
+            "max": 65536,
+            "increment": 8
+          }],
+          "parameterSets": [
+            "ML-DSA-65",
+            "ML-DSA-87"
+          ]
+        }]
       },
       {
         "algorithm": "ML-KEM",
@@ -1021,6 +1033,7 @@ static bool GetConfig(const Span<const uint8_t> args[],
           true,
           false
         ],
+        "signatureInterfaces": [ "internal" ],
         "capabilities": [
           {
             "parameterSets": [
@@ -1040,6 +1053,7 @@ static bool GetConfig(const Span<const uint8_t> args[],
         "algorithm": "SLH-DSA",
         "mode": "sigVer",
         "revision": "FIPS205",
+        "signatureInterfaces": [ "internal" ],
         "deterministic": [
           true,
           false
