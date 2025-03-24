@@ -13,6 +13,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// ====================================================================
+// Copyright 2020 Apple Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the “Software”),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom
+// the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
 
 #ifndef OPENSSL_HEADER_SSL_INTERNAL_H
 #define OPENSSL_HEADER_SSL_INTERNAL_H
@@ -1536,6 +1555,8 @@ int ssl_write_buffer_flush(SSL *ssl);
 
 // Certificate functions.
 
+bool ssl_has_raw_public_key_certificate(const SSL_HANDSHAKE *hs);
+
 // ssl_parse_cert_chain parses a certificate list from |cbs| in the format used
 // by a TLS Certificate message. On success, it advances |cbs| and returns
 // true. Otherwise, it returns false and sets |*out_alert| to an alert to send
@@ -2253,6 +2274,8 @@ struct SSL_HANDSHAKE {
   // |cert_compression_negotiated| is true.
   uint16_t cert_compression_alg_id;
 
+  uint8_t server_certificate_type;
+
   // ech_hpke_ctx is the HPKE context used in ECH. On the server, it is
   // initialized if |ech_status| is |ssl_ech_accepted|. On the client, it is
   // initialized if |selected_ech_config| is not nullptr.
@@ -2413,6 +2436,8 @@ struct SSL_HANDSHAKE {
   // cert_compression_negotiated is true iff |cert_compression_alg_id| is valid.
   bool cert_compression_negotiated : 1;
 
+  bool server_certificate_type_negotiated : 1;
+
   // apply_jdk11_workaround is true if the peer is probably a JDK 11 client
   // which implemented TLS 1.3 incorrectly.
   bool apply_jdk11_workaround : 1;
@@ -2463,6 +2488,9 @@ struct SSL_HANDSHAKE {
 
   // pake_share is the PAKE message received over the wire, if any.
   UniquePtr<SSLPAKEShare> pake_share;
+
+  Array<uint8_t> server_certificate_type_list;
+  Array<uint8_t> servfer_raw_public_key_certificate;
 
   // pake_share_bytes are the bytes of the PAKEShare to send, if any.
   Array<uint8_t> pake_share_bytes;

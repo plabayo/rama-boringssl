@@ -11,6 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// ====================================================================
+// Copyright 2020 Apple Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the “Software”),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom
+// the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
 
 #include <openssl/ssl.h>
 
@@ -299,7 +318,15 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
 
   // Store a null certificate list rather than an empty one if the peer didn't
   // send certificates.
-  if (sk_CRYPTO_BUFFER_num(certs.get()) == 0) {
+  if (hs->server_certificate_type_negotiated &&
+      hs->server_certificate_type == TLSEXT_CERTIFICATETYPE_RAW_PUBLIC_KEY) {
+    pkey = UniquePtr<EVP_PKEY>(EVP_parse_public_key(&certificate));
+    if (!pkey) {
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
+      OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+      return false;
+    }
+  } else if (sk_CRYPTO_BUFFER_num(certs.get()) == 0) {
     certs.reset();
   }
 
@@ -313,7 +340,9 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
   }
 
   if (sk_CRYPTO_BUFFER_num(hs->new_session->certs.get()) == 0) {
-    if (!allow_anonymous) {
+    if (!allow_anonymous && !(hs->server_certificate_type_negotiated &&
+                              hs->server_certificate_type ==
+                                  TLSEXT_CERTIFICATETYPE_RAW_PUBLIC_KEY)) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_PEER_DID_NOT_RETURN_A_CERTIFICATE);
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_CERTIFICATE_REQUIRED);
       return false;
@@ -429,6 +458,20 @@ bool tls13_add_certificate(SSL_HANDSHAKE *hs) {
       !CBB_add_u24_length_prefixed(body, &certificate_list)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
     return false;
+  }
+
+  if (hs->server_certificate_type_negotiated &&
+      hs->server_certificate_type == TLSEXT_CERTIFICATETYPE_RAW_PUBLIC_KEY) {
+    CBB leaf, extensions;
+    if (!CBB_add_u24_length_prefixed(&certificate_list, &leaf) ||
+        !CBB_add_bytes(&leaf,
+                       ssl->config->server_raw_public_key_certificate.data(),
+                       ssl->config->server_raw_public_key_certificate.size()) ||
+        !CBB_add_u16_length_prefixed(&certificate_list, &extensions)) {
+      OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
+      return false;
+    }
+    return ssl_add_message_cbb(ssl, cbb.get());
   }
 
   if (hs->credential == nullptr) {

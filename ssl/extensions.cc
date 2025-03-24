@@ -11,6 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// ====================================================================
+// Copyright 2020 Apple Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the “Software”),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom
+// the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
 
 #include <openssl/ssl.h>
 
@@ -2604,9 +2623,9 @@ static bool ext_certificate_authorities_add_clienthello(
   if (ssl_has_CA_names(hs->config)) {
     CBB ca_contents;
     if (!CBB_add_u16(out_compressible,
-                     TLSEXT_TYPE_certificate_authorities) ||  //
-        !CBB_add_u16_length_prefixed(out_compressible, &ca_contents) ||    //
-        !ssl_add_CA_names(hs, &ca_contents) ||                //
+                     TLSEXT_TYPE_certificate_authorities) ||             //
+        !CBB_add_u16_length_prefixed(out_compressible, &ca_contents) ||  //
+        !ssl_add_CA_names(hs, &ca_contents) ||                           //
         !CBB_flush(out_compressible)) {
       return false;
     }
@@ -3503,6 +3522,138 @@ bool ssl_negotiate_alps(SSL_HANDSHAKE *hs, uint8_t *out_alert,
   return true;
 }
 
+// Server Certificate Type
+
+static bool ext_server_certificate_type_add_clienthello(
+    const SSL_HANDSHAKE *hs, CBB *out, CBB *out_compressible,
+    ssl_client_hello_type_t type) {
+  if (hs->max_version <= TLS1_2_VERSION) {
+    return true;
+  }
+
+  if (hs->config->server_certificate_type_list.empty()) {
+    return true;
+  }
+
+  CBB contents, server_certificate_types;
+  if (!CBB_add_u16(out, TLSEXT_TYPE_server_certificate_type) ||
+      !CBB_add_u16_length_prefixed(out, &contents) ||
+      !CBB_add_u8_length_prefixed(&contents, &server_certificate_types) ||
+      !CBB_add_bytes(&server_certificate_types,
+                     hs->config->server_certificate_type_list.data(),
+                     hs->config->server_certificate_type_list.size()) ||
+      !CBB_flush(out)) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool ssl_is_certificate_type_allowed(CBS *certificate_type_list,
+                                            uint8_t certificate_type) {
+  uint8_t supported_certificate_type;
+  while (CBS_len(certificate_type_list) > 0) {
+    if (!CBS_get_u8(certificate_type_list, &supported_certificate_type)) {
+      break;
+    }
+
+    if (supported_certificate_type != certificate_type) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+static bool ext_server_certificate_type_parse_serverhello(SSL_HANDSHAKE *hs,
+                                                          uint8_t *out_alert,
+                                                          CBS *content) {
+  if (hs->max_version <= TLS1_2_VERSION ||
+      hs->config->server_certificate_type_list.empty()) {
+    return true;
+  }
+
+  // Strict
+  if (!content) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_UNKNOWN_CERTIFICATE_TYPE);
+    *out_alert = SSL_AD_ILLEGAL_PARAMETER;
+    return false;
+  }
+
+  CBS certificate_type_list =
+      MakeConstSpan(hs->config->server_certificate_type_list);
+
+  uint8_t certificate_type;
+  if (CBS_get_u8(content, &certificate_type) &&
+      ssl_is_certificate_type_allowed(&certificate_type_list,
+                                      certificate_type)) {
+    hs->server_certificate_type = certificate_type;
+    hs->server_certificate_type_negotiated = 1;
+    return true;
+  }
+
+  OPENSSL_PUT_ERROR(SSL, SSL_R_UNKNOWN_CERTIFICATE_TYPE);
+  *out_alert = SSL_AD_ILLEGAL_PARAMETER;
+  return false;
+}
+
+static bool ext_server_certificate_type_parse_clienthello(SSL_HANDSHAKE *hs,
+                                                          uint8_t *out_alert,
+                                                          CBS *content) {
+  if (!content) {
+    return true;
+  }
+
+  if (hs->max_version <= TLS1_2_VERSION ||
+      hs->config->server_certificate_type_list.empty()) {
+    return true;
+  }
+
+  CBS certificate_type_list =
+      MakeConstSpan(hs->config->server_certificate_type_list);
+
+  CBS type_list;
+  if (!CBS_get_u8_length_prefixed(content, &type_list)) {
+    type_list.len = 0;
+  }
+
+  uint8_t type;
+  while (CBS_len(&type_list) > 0) {
+    if (!CBS_get_u8(&type_list, &type)) {
+      break;
+    }
+
+    if (!ssl_is_certificate_type_allowed(&certificate_type_list, type)) {
+      continue;
+    }
+
+    hs->server_certificate_type = type;
+    hs->server_certificate_type_negotiated = 1;
+    return true;
+  }
+
+  *out_alert = SSL_AD_ILLEGAL_PARAMETER;
+  return false;
+}
+
+static bool ext_server_certificate_type_add_serverhello(SSL_HANDSHAKE *hs,
+                                                        CBB *out) {
+  if (!hs->server_certificate_type_negotiated) {
+    return true;
+  }
+
+  CBB contents;
+  if (!CBB_add_u16(out, TLSEXT_TYPE_server_certificate_type) ||
+      !CBB_add_u16_length_prefixed(out, &contents) ||
+      !CBB_add_u8(&contents, hs->server_certificate_type) || !CBB_flush(out)) {
+    return false;
+  }
+
+  return true;
+}
+
 // kExtensions contains all the supported extensions.
 static const struct tls_extension kExtensions[] = {
     {
@@ -3675,6 +3826,13 @@ static const struct tls_extension kExtensions[] = {
         // ALPS is negotiated late in |ssl_negotiate_alpn|.
         ignore_parse_clienthello,
         ext_alps_add_serverhello,
+    },
+    {
+        TLSEXT_TYPE_server_certificate_type,
+        ext_server_certificate_type_add_clienthello,
+        ext_server_certificate_type_parse_serverhello,
+        ext_server_certificate_type_parse_clienthello,
+        ext_server_certificate_type_add_serverhello,
     },
     {
         TLSEXT_TYPE_application_settings_old,

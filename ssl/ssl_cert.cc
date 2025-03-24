@@ -12,6 +12,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// ====================================================================
+// Copyright 2020 Apple Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the “Software”),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom
+// the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
 
 #include <openssl/ssl.h>
 
@@ -106,6 +125,24 @@ static int cert_set_chain_and_key(
                    cert->legacy_credential.get(), privkey_method);
 }
 
+static int cert_set_key(CERT *cert, EVP_PKEY *privkey,
+                        const SSL_PRIVATE_KEY_METHOD *privkey_method) {
+  if (privkey == NULL && privkey_method == NULL) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_PASSED_NULL_PARAMETER);
+    return 0;
+  }
+
+  if (privkey != NULL && privkey_method != NULL) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_CANNOT_HAVE_BOTH_PRIVKEY_AND_METHOD);
+    return 0;
+  }
+
+  cert->privatekey = UpRef(privkey);
+  cert->key_method = privkey_method;
+
+  return 1;
+}
+
 bool ssl_set_cert(CERT *cert, UniquePtr<CRYPTO_BUFFER> buffer) {
   // Don't fail for a cert/key mismatch, just free the current private key.
   // (When switching to a different keypair, the caller should switch the
@@ -117,6 +154,12 @@ bool ssl_set_cert(CERT *cert, UniquePtr<CRYPTO_BUFFER> buffer) {
 
   cert->x509_method->cert_flush_cached_leaf(cert);
   return true;
+}
+
+bool ssl_has_raw_public_key_certificate(const SSL_HANDSHAKE *hs) {
+  return hs->server_certificate_type_negotiated &&
+         hs->server_certificate_type == TLSEXT_CERTIFICATETYPE_RAW_PUBLIC_KEY &&
+         ssl_has_private_key(hs);
 }
 
 bool ssl_parse_cert_chain(uint8_t *out_alert,
@@ -516,11 +559,25 @@ int SSL_set_chain_and_key(SSL *ssl, CRYPTO_BUFFER *const *certs,
                                 privkey, privkey_method);
 }
 
+int SSL_set_nullchain_and_key(SSL *ssl, EVP_PKEY *privkey,
+                              const SSL_PRIVATE_KEY_METHOD *privkey_method) {
+  if (!ssl->config) {
+    return 0;
+  }
+  return cert_set_key(ssl->config->cert.get(), privkey, privkey_method);
+}
+
 int SSL_CTX_set_chain_and_key(SSL_CTX *ctx, CRYPTO_BUFFER *const *certs,
                               size_t num_certs, EVP_PKEY *privkey,
                               const SSL_PRIVATE_KEY_METHOD *privkey_method) {
   return cert_set_chain_and_key(ctx->cert.get(), certs, num_certs, privkey,
                                 privkey_method);
+}
+
+int SSL_CTX_set_nullchain_and_key(
+    SSL_CTX *ctx, EVP_PKEY *privkey,
+    const SSL_PRIVATE_KEY_METHOD *privkey_method) {
+  return cert_set_key(ctx->cert.get(), privkey, privkey_method);
 }
 
 void SSL_certs_clear(SSL *ssl) {
