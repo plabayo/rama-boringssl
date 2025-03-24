@@ -5008,6 +5008,30 @@ TEST(X509Test, Names) {
           /*invalid_emails=*/{},
           /*flags=*/0,
       },
+
+      // Underscores in DNS names are forbidden by default.
+      {
+          /*cert_subject=*/{},
+          /*cert_dns_names=*/{"*.example.com"},
+          /*cert_emails=*/{},
+          /*valid_dns_names=*/{},
+          /*invalid_dns_names=*/{"not_allowed.example.com"},
+          /*valid_emails=*/{},
+          /*invalid_emails=*/{},
+          /*flags=*/0,
+      },
+
+      // Underscores in DNS names can be allowed with the right flag.
+      {
+          /*cert_subject=*/{},
+          /*cert_dns_names=*/{"*.example.com"},
+          /*cert_emails=*/{},
+          /*valid_dns_names=*/{"now_allowed.example.com"},
+          /*invalid_dns_names=*/{},
+          /*valid_emails=*/{},
+          /*invalid_emails=*/{},
+          /*flags=*/X509_CHECK_FLAG_UNDERSCORE_WILDCARDS,
+      },
   };
 
   size_t i = 0;
@@ -5496,13 +5520,13 @@ TEST(X509Test, Print) {
         X509v3 extensions:
             X509v3 Key Usage: critical
                 Digital Signature, Key Encipherment
-            X509v3 Extended Key Usage: 
+            X509v3 Extended Key Usage:
                 TLS Web Server Authentication, TLS Web Client Authentication
             X509v3 Basic Constraints: critical
                 CA:FALSE
-            X509v3 Subject Key Identifier: 
+            X509v3 Subject Key Identifier:
                 A3:79:A6:F6:EE:AF:B9:A5:5E:37:8C:11:80:34:E2:75
-            X509v3 Authority Key Identifier: 
+            X509v3 Authority Key Identifier:
                 keyid:8C:1A:68:A8:B5:76:DB:5D:57:7B:1F:8D:14:B2:06:A3
 
     Signature Algorithm: sha256WithRSAEncryption

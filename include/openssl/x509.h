@@ -3408,6 +3408,9 @@ OPENSSL_EXPORT int X509_VERIFY_PARAM_add1_host(X509_VERIFY_PARAM *param,
 // enabled when subjectAltNames is missing.
 #define X509_CHECK_FLAG_NEVER_CHECK_SUBJECT 0x20
 
+// Allow underscores in DNS wildcard matches.
+#define X509_CHECK_FLAG_UNDERSCORE_WILDCARDS 0x40
+
 // X509_VERIFY_PARAM_set_hostflags sets the name-checking flags on |param| to
 // |flags|. |flags| should be a combination of |X509_CHECK_FLAG_*| constants.
 OPENSSL_EXPORT void X509_VERIFY_PARAM_set_hostflags(X509_VERIFY_PARAM *param,
