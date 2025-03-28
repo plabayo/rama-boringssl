@@ -639,6 +639,15 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
                             const bool has_aes_hw, const char *rule_str,
                             bool strict);
 
+// fork of `ssl_create_cipher_list` ^
+// with the key difference that we respect the `rule_str` param
+// as the source of truth
+//
+// this is potentially dangerous as it might mean it uses ciphers
+// which aren't supported
+bool rama_ssl_create_raw_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
+                                     const uint16_t *cipher_values, int num);
+
 // ssl_cipher_auth_mask_for_key returns the mask of cipher |algorithm_auth|
 // values suitable for use with |key| in TLS 1.2 and below.
 uint32_t ssl_cipher_auth_mask_for_key(const EVP_PKEY *key);
@@ -3719,6 +3728,10 @@ struct ssl_ctx_st {
 
   // grease_enabled is whether GREASE (RFC 8701) is enabled.
   bool grease_enabled : 1;
+
+  // rama: set to indicate that the cipher list should be preserved
+  // as-is, besides the ephermal bits such as grease.
+  bool rama_preserve_cipher_list : 1;
 
   // permute_extensions is whether to permute extensions when sending messages.
   bool permute_extensions : 1;

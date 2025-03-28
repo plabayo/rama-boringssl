@@ -242,7 +242,7 @@ static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
 
   // Add TLS 1.3 ciphers. Order ChaCha20-Poly1305 relative to AES-GCM based on
   // hardware support.
-  if (hs->max_version >= TLS1_3_VERSION) {
+  if (!ssl->ctx->rama_preserve_cipher_list && hs->max_version >= TLS1_3_VERSION) {
     const bool has_aes_hw = ssl->config->aes_hw_override
                                 ? ssl->config->aes_hw_override_value
                                 : EVP_has_aes_hardware();

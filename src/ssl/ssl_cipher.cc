@@ -1273,6 +1273,73 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
   return true;
 }
 
+// fork of `ssl_create_cipher_list` ^
+// with the key difference that we respect the `rule_str` param
+// as the source of truth
+//
+// this is potentially dangerous as it might mean it uses ciphers
+// which aren't supported
+bool rama_ssl_create_raw_cipher_list(
+    UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
+    const uint16_t *cipher_values, int num) {
+  // Return with error if nothing to do.
+  if (out_cipher_list == NULL || cipher_values == NULL ||
+      num <= 0) {
+    return false;
+  }
+
+  // Allocate new "cipherstack" for the result, return with error
+  // if we cannot get one.
+  UniquePtr<STACK_OF(SSL_CIPHER)> cipherstack(sk_SSL_CIPHER_new_null());
+  if (cipherstack == nullptr) {
+    return false;
+  }
+
+  // for now we do not use groups as this is really only intended for client connectors,
+  // where AFAIK the groups aren't used... but perhaps we're wrong and we should somehow support this...
+  Array<bool> in_group_flags;
+  size_t num_in_group_flags = 0;
+  if (!in_group_flags.Init(num)) {
+      return false;
+  }
+
+  // Push the ciphers as-is
+  //
+  // TODO: we might need to do some verification here
+  int i;
+  const SSL_CIPHER* value;
+  for (i = 0; i < num; i++) {
+    value = SSL_get_cipher_by_value(cipher_values[i]);
+    if (value == NULL) {
+        continue;
+    }
+    if (!sk_SSL_CIPHER_push(cipherstack.get(), value)) {
+      return false;
+    }
+    in_group_flags[num_in_group_flags++] = false;
+  }
+
+  UniquePtr<SSLCipherPreferenceList> pref_list =
+      MakeUnique<SSLCipherPreferenceList>();
+  if (!pref_list ||
+      !pref_list->Init(
+          std::move(cipherstack),
+          MakeConstSpan(in_group_flags).subspan(0, num_in_group_flags))) {
+    return false;
+  }
+
+  *out_cipher_list = std::move(pref_list);
+
+  // Configuring an empty cipher list is an error but still updates the
+  // output.
+  if (sk_SSL_CIPHER_num((*out_cipher_list)->ciphers.get()) == 0) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_NO_CIPHER_MATCH);
+    return false;
+  }
+
+  return true;
+}
+
 uint32_t ssl_cipher_auth_mask_for_key(const EVP_PKEY *key) {
   switch (EVP_PKEY_id(key)) {
     case EVP_PKEY_RSA:

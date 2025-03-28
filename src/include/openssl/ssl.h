@@ -1553,6 +1553,10 @@ OPENSSL_EXPORT int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx,
 // garbage inputs, unless an empty cipher list results.
 OPENSSL_EXPORT int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str);
 
+// Fork of SSL_CTX_set_cipher_list but working with direct cipher values
+// that are used as a source of truth
+OPENSSL_EXPORT int RAMA_SSL_CTX_set_raw_cipher_list(SSL_CTX *ctx, const uint16_t *values, int num);
+
 // SSL_set_strict_cipher_list configures the cipher list for |ssl|, evaluating
 // |str| as a cipher string and returning error if |str| contains anything
 // meaningless. It returns one on success and zero on failure.

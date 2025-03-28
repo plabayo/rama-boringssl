@@ -531,6 +531,7 @@ ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
       signed_cert_timestamps_enabled(false),
       channel_id_enabled(false),
       grease_enabled(false),
+      rama_preserve_cipher_list(false),
       permute_extensions(false),
       allow_unknown_alpn_protos(false),
       false_start_allowed_without_alpn(false),
@@ -2043,6 +2044,14 @@ int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
                                                : EVP_has_aes_hardware();
   return ssl_create_cipher_list(&ctx->cipher_list, has_aes_hw, str,
                                 false /* not strict */);
+}
+
+OPENSSL_EXPORT int RAMA_SSL_CTX_set_raw_cipher_list(SSL_CTX *ctx, const uint16_t *values, int num) {
+    bool result = rama_ssl_create_raw_cipher_list(&ctx->cipher_list, values, num);
+    if (result) {
+        ctx->rama_preserve_cipher_list = true;
+    }
+    return result;
 }
 
 int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx, const char *str) {
