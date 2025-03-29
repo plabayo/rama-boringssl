@@ -4570,6 +4570,12 @@ OPENSSL_EXPORT void SSL_CTX_set_grease_enabled(SSL_CTX *ctx, int enabled);
 // permute extensions. For now, this is only implemented for the ClientHello.
 OPENSSL_EXPORT void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled);
 
+// RAMA_SSL_CTX_set_extension_order configures whether sockets on |ctx|
+// should make use of the provided extensions to define the order,
+// which is similar to SSL_CTX_set_permute_extensions but in a defined
+// order instead of a random one.
+OPENSSL_EXPORT int RAMA_SSL_CTX_set_extension_order(SSL_CTX *ctx, const uint16_t *ids, int num);
+
 // SSL_set_permute_extensions configures whether sockets on |ssl| should
 // permute extensions. For now, this is only implemented for the ClientHello.
 OPENSSL_EXPORT void SSL_set_permute_extensions(SSL *ssl, int enabled);

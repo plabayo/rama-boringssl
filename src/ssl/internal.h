@@ -2141,6 +2141,11 @@ bool tls13_process_new_session_ticket(SSL *ssl, const SSLMessage &msg);
 bssl::UniquePtr<SSL_SESSION> tls13_create_session_with_ticket(SSL *ssl,
                                                               CBS *body);
 
+// rama_ssl_setup_extension_order uses the extension order as
+// defined by the provided extension order, or falls back
+// to ssl_setup_extension_permutation otherwise.
+bool rama_ssl_setup_extension_order(SSL_HANDSHAKE *hs);
+
 // ssl_setup_extension_permutation computes a ClientHello extension permutation
 // for |hs|, if applicable. It returns true on success and false on error.
 bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs);
@@ -3735,6 +3740,10 @@ struct ssl_ctx_st {
 
   // permute_extensions is whether to permute extensions when sending messages.
   bool permute_extensions : 1;
+
+  // rama_ssl_extension_order, if not empty, will use this
+  // as the order to be used to write the ssl extensions.
+  bssl::Array<uint16_t> rama_ssl_extension_order;
 
   // allow_unknown_alpn_protos is whether the client allows unsolicited ALPN
   // protocols from the peer.

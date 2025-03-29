@@ -2941,6 +2941,21 @@ void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled) {
   ctx->permute_extensions = !!enabled;
 }
 
+int RAMA_SSL_CTX_set_extension_order(SSL_CTX *ctx, const uint16_t *ids, int num) {
+  Array<uint16_t> order;
+  if (num > 0) {
+      if (!order.Init(num)) {
+          return 0;
+      }
+      int i;
+      for (i = 0; i < num; i++) {
+          order[i] = ids[i];
+      }
+  }
+  ctx->rama_ssl_extension_order = std::move(order);
+  return 1;
+}
+
 void SSL_set_permute_extensions(SSL *ssl, int enabled) {
   if (!ssl->config) {
     return;

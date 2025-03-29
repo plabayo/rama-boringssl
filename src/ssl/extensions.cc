@@ -3278,6 +3278,74 @@ static_assert(kNumExtensions <=
                   sizeof(((SSL_HANDSHAKE *)NULL)->extensions.received) * 8,
               "too many extensions for received bitset");
 
+bool rama_ssl_setup_extension_order(SSL_HANDSHAKE *hs) {
+    SSL *const ssl = hs->ssl;
+    if (ssl->ctx->rama_ssl_extension_order.empty()) {
+        return ssl_setup_extension_permutation(hs);
+    }
+
+    static_assert(kNumExtensions <= UINT8_MAX,
+                  "extensions_permutation type is too small");
+    Array<uint8_t> permutation;
+    if (!permutation.Init(kNumExtensions)) {
+      return false;
+    }
+
+    bool seen[kNumExtensions] = {0};
+    int permIndex = 0;
+
+    for (uint16_t id : ssl->ctx->rama_ssl_extension_order) {
+        size_t j;
+        for (j = 0; j < kNumExtensions; j++) {
+            if (kExtensions[j].value == id) {
+                break;
+            }
+        }
+        if (j == kNumExtensions || seen[j]) {
+            continue;  // Skip unknown or duplicate entries
+        }
+        seen[j] = true;
+        permutation[permIndex++] = j;
+    }
+
+    size_t rem = kNumExtensions - permIndex;
+    if (rem == 0) {
+        hs->extension_permutation = std::move(permutation);
+        return true;
+    }
+
+    size_t offset = permIndex;
+    for (size_t i = 0; i < kNumExtensions; i++) {
+        if (seen[i]) {
+            continue; // skip duplicate entries
+        }
+        seen[i] = true;
+        permutation[permIndex++] = i;
+    }
+
+    if (rem > 1) {
+        size_t seeds_num = rem - 1;
+        uint32_t *seeds = static_cast<uint32_t *>(OPENSSL_malloc(seeds_num * sizeof(uint32_t)));
+        if (!seeds) {
+            permutation.Reset();
+            return false;
+        }
+        if (!RAND_bytes(reinterpret_cast<uint8_t *>(seeds), seeds_num * sizeof(uint32_t))) {
+            permutation.Reset();
+            OPENSSL_free(seeds);
+            return false;
+        }
+        for (size_t i = kNumExtensions - 1; i > offset; i--) {
+            size_t swap_idx = offset + (seeds[i - offset] % (i - offset));
+            std::swap(permutation[i], permutation[swap_idx]);
+        }
+        OPENSSL_free(seeds);
+    }
+
+    hs->extension_permutation = std::move(permutation);
+    return true;
+}
+
 bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs) {
   if (!hs->config->permute_extensions) {
     return true;
